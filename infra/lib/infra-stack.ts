@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as cdk from 'aws-cdk-lib/core';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
@@ -66,14 +67,21 @@ export class InfraStack extends cdk.Stack {
       },
     });
 
-    // Function URL (no auth - URL is obscure, intended for personal use)
+    // Function URL (IAM auth - server signs requests with SigV4)
     const functionUrl = parseFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
+      authType: lambda.FunctionUrlAuthType.AWS_IAM,
       cors: {
         allowedOrigins: ['*'],
         allowedMethods: [lambda.HttpMethod.POST],
         allowedHeaders: ['content-type'],
       },
+    });
+
+    // Allow same-account principals to invoke via Function URL
+    parseFunction.addPermission('AllowAccountInvoke', {
+      principal: new iam.AccountRootPrincipal(),
+      action: 'lambda:InvokeFunctionUrl',
+      functionUrlAuthType: lambda.FunctionUrlAuthType.AWS_IAM,
     });
 
     // --- Trigger Lambda: S3 raw/ -> parse via Function URL -> S3 processed/ ---

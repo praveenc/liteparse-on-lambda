@@ -1,7 +1,12 @@
 import express from 'express';
 import multer from 'multer';
+import https from 'https';
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { CloudFormationClient, DescribeStacksCommand } from '@aws-sdk/client-cloudformation';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
+import { SignatureV4 } from '@smithy/signature-v4';
+import { HttpRequest } from '@smithy/protocol-http';
+import { Sha256 } from '@aws-crypto/sha256-js';
 import { Readable } from 'stream';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,7 +14,15 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const STACK_NAME = process.env.LITEPARSE_STACK || 'LiteparseStack';
+const REGION = process.env.AWS_REGION || 'us-west-2';
 const PORT = parseInt(process.env.PORT || '3000');
+
+const signer = new SignatureV4({
+  service: 'lambda',
+  region: REGION,
+  credentials: defaultProvider(),
+  sha256: Sha256,
+});
 
 interface StackConfig {
   bucket: string;
@@ -56,6 +69,7 @@ app.post('/api/parse', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file provided' });
 
   const mode = req.query.text === 'true' ? '?text=true' : '';
+  const queryParams: Record<string, string> = req.query.text === 'true' ? { text: 'true' } : {};
   const boundary = `----FormBoundary${Date.now()}`;
   const formParts: Buffer[] = [];
 
@@ -69,24 +83,54 @@ app.post('/api/parse', upload.single('file'), async (req, res) => {
   formParts.push(Buffer.from(`--${boundary}--\r\n`));
 
   const body = Buffer.concat(formParts);
-  const url = `${config.functionUrl}parse${mode}`;
+  const url = new URL('parse', config.functionUrl);
 
   try {
-    const response = await fetch(url, {
+    const request = new HttpRequest({
       method: 'POST',
-      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      protocol: 'https:',
+      hostname: url.hostname,
+      path: url.pathname,
+      query: queryParams,
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        'content-length': String(body.length),
+        host: url.hostname,
+      },
       body,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: `Parse failed: ${response.status}`, detail: errText });
+    const signed = await signer.sign(request);
+
+    const fetchUrl = `${url.origin}${url.pathname}${mode}`;
+    const response = await new Promise<{ status: number; headers: Record<string, string>; body: string }>((resolve, reject) => {
+      const req = https.request({
+        hostname: url.hostname,
+        port: 443,
+        path: `${url.pathname}${mode}`,
+        method: 'POST',
+        headers: signed.headers as Record<string, string>,
+      }, (resp) => {
+        let data = '';
+        resp.on('data', chunk => data += chunk);
+        resp.on('end', () => resolve({
+          status: resp.statusCode || 500,
+          headers: resp.headers as Record<string, string>,
+          body: data,
+        }));
+      });
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      return res.status(response.status).json({ error: `Parse failed: ${response.status}`, detail: response.body });
     }
 
-    const contentType = response.headers.get('content-type') || 'text/plain';
-    const result = await response.text();
+    const contentType = response.headers['content-type'] || 'text/plain';
     res.setHeader('Content-Type', contentType);
-    res.send(result);
+    res.send(response.body);
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to reach parse service', detail: err.message });
   }

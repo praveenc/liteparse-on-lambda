@@ -7,8 +7,13 @@
     "dev": "portless liteparse tsx watch server.ts"
   },
   "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
     "@aws-sdk/client-cloudformation": "^3.1053.0",
     "@aws-sdk/client-s3": "^3.750.0",
+    "@aws-sdk/credential-provider-node": "^3.972.44",
+    "@aws-sdk/signature-v4": "^3.370.0",
+    "@smithy/protocol-http": "^5.4.4",
+    "@smithy/signature-v4": "^5.4.4",
     "express": "^5.1.0",
     "multer": "^2.0.0"
   },
