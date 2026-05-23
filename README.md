@@ -186,3 +186,9 @@ docs/
 - [Architecture Decisions](docs/architecture-decisions.md): Why Lambda over ECS, container setup, security model.
 - [LiteParse Overview](docs/liteparse-overview.md): How LiteParse's three-stage pipeline works.
 - [LiteParse Server API](https://developers.llamaindex.ai/liteparse/guides/server-usage/#api-specification): Official endpoint documentation.
+
+---
+
+<div align="center">
+  <sub>Built for the AI developer community ❤️</sub>
+</div>
