@@ -4,7 +4,7 @@ CDK stack for the LiteParse-on-Lambda service. Deploys:
 
 - S3 bucket (`liteparse-docs-{account-id}`) with lifecycle rules
 - Lambda function (Docker container: LiteParse slim + Lambda Web Adapter)
-- Lambda Function URL for direct HTTP access
+- Lambda Function URL with AWS_IAM auth (same-account invoke via resource policy)
 - Trigger Lambda for the S3 batch pipeline
 - CloudWatch alarms (errors, duration, throttles)
 
@@ -46,3 +46,11 @@ CDK builds and pushes this image to ECR automatically during `cdk deploy`.
 | Ephemeral storage | 1024 MB |
 | Architecture | X86_64 |
 | HOME | /tmp (LibreOffice needs writable home) |
+
+## Security
+
+The Function URL uses `AWS_IAM` auth type. Access is controlled via a resource-based policy that grants `lambda:InvokeFunctionUrl` to same-account principals (`arn:aws:iam::{account}:root`).
+
+The local UI server signs all requests to the Function URL using SigV4 with the developer's AWS credentials (resolved via the standard credential provider chain). No public access to the Function URL.
+
+The Trigger Lambda (for the S3 batch pipeline) invokes the Function URL using its execution role, which is also covered by the same-account policy.

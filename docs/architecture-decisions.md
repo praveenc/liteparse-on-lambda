@@ -30,7 +30,7 @@ ENV AWS_LWA_PORT=5000
 
 ## API Interface
 
-- **Endpoint**: Lambda Function URL (public, IAM auth optional)
+- **Endpoint**: Lambda Function URL (AWS_IAM auth, SigV4-signed requests)
 - **Protocol**: HTTP multipart form POST (file upload directly to `/parse`)
 - **No ALB, no VPC, no NAT required**
 
@@ -133,14 +133,14 @@ s3://liteparse-docs-{account-id}/
 - **Trigger**: S3 `OBJECT_CREATED` notification on `raw/` prefix
 - **Lambda**: Lightweight Node.js handler (ARM64, 256 MB, 5-min timeout)
 - **Flow**: Download file from S3, POST to LiteParse Function URL, write `.txt` and `.json` to `processed/`
-- **No VPC needed**: Function URL is publicly addressable (secured via IAM SigV4)
+- **No VPC needed**: Function URL is addressable from same-account principals via IAM
 
 ## Security
 
-- Lambda Function URL with `NONE` auth type (URL is an opaque random string)
-- The Function URL is not publicly advertised; obscurity provides baseline protection
+- Lambda Function URL with `AWS_IAM` auth type
+- Same-account principals granted `lambda:InvokeFunctionUrl` via resource policy
+- Local UI server signs requests with SigV4 using developer's AWS credentials
 - S3 bucket access controlled via IAM (Lambda roles get read/write grants)
-- For stricter control, add a Lambda resource policy restricting source IP or switch to `AWS_IAM` auth
 - No VPC, no public IPs on containers, no security groups to manage
 
 ## Infrastructure as Code

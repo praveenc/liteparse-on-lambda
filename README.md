@@ -4,6 +4,8 @@ Self-hosted document parsing on AWS. Drop in a DOCX, PDF, or spreadsheet and get
 
 This runs [LiteParse](https://github.com/run-llama/liteparse) (the open-source layout-aware parser from LlamaIndex) as a Lambda function behind a Function URL, with an optional S3 pipeline for batch processing. Deployed via CDK.
 
+![LiteParse UI](.github/images/liteparse-on-lambda-home.png)
+
 ---
 
 ## Quick Start
@@ -37,7 +39,9 @@ There are two ways to use the service:
 
 ### 1. Local Web UI (direct parse)
 
-The simplest option. A drag-and-drop interface that sends your file directly to the Lambda Function URL and shows the parsed result. No S3 involved, no polling. Response comes back in seconds.
+The simplest option. A drag-and-drop interface that sends your file to the Lambda Function URL (signed with SigV4) and shows the parsed result. No S3 involved, no polling. Response comes back in seconds.
+
+The UI shows real-time progress with file metadata, elapsed time, and output stats.
 
 ```bash
 cd ui && npm start
@@ -57,16 +61,6 @@ aws s3 ls s3://liteparse-docs-ACCOUNT_ID/processed/20260523/
 #   report.docx.json
 ```
 
-You can also call the Function URL directly with `curl`:
-
-```bash
-# Plain text
-curl -X POST "https://FUNCTION_URL/parse?text=true" -F "file=@document.docx"
-
-# Structured JSON (pages with bounding boxes)
-curl -X POST "https://FUNCTION_URL/parse" -F "file=@document.pdf"
-```
-
 ---
 
 ## Supported Formats
@@ -79,9 +73,9 @@ PDF, DOCX, XLSX, PPTX, PNG, and JPG. Images go through Tesseract.js OCR automati
 
 ```
 +---------------------------------------------------------------+
-| Direct parse (UI, curl, any HTTP client)                      |
+| Direct parse (UI or any HTTP client with IAM SigV4)           |
 |                                                               |
-|   POST /parse -----> Lambda Function URL                      |
+|   POST /parse -----> Lambda Function URL (AWS_IAM auth)       |
 |                      (LiteParse container, 4 GB, 5 min)       |
 |                      <----- parsed text or JSON               |
 +---------------------------------------------------------------+
@@ -103,9 +97,10 @@ The Lambda runs the pre-built [LiteParse slim server image](https://github.com/r
 **Key design choices:**
 
 - No always-on compute. Lambda scales to zero when idle.
-- The Function URL is public (NONE auth) with an opaque random hostname. For stricter access control, add a resource policy or switch to AWS_IAM auth.
+- Function URL uses AWS_IAM auth. The local UI server signs requests with SigV4 using your AWS credentials. Same-account principals are granted invoke access via resource policy.
 - LibreOffice runs inside the container for DOCX/XLSX/PPTX conversion. HOME is set to /tmp since Lambda's filesystem is read-only.
 - Cold starts take 15-30 seconds (1.8 GB image). Warm invocations complete in 1-6 seconds depending on file size.
+- No VPC, no ALB, no NAT, no always-on compute.
 
 ---
 
@@ -157,8 +152,9 @@ infra/
   docker/Dockerfile           Extends LiteParse slim image with Lambda Web Adapter
 
 ui/
-  server.ts                   Express server (direct parse, upload, preview, download)
-  public/index.html           Drag-and-drop frontend
+  server.ts                   Express server (SigV4-signed parse, upload, preview, download)
+  public/index.html           Drag-and-drop frontend with progress tracking
+  tsconfig.json               TypeScript configuration
 
 docs/
   architecture-decisions.md   Full design rationale

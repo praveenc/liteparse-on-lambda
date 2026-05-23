@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0] - 2026-05-23
+
+UI redesign and security hardening.
+
+### Changed
+- **UI: Light theme** with warm off-white background and forest green accent (OKLCH color space)
+- **UI: Progress tracking** with 3-phase indicator (Upload, Parse, Done), live elapsed timer, and file metadata (size, type, icon)
+- **UI: Completion stats** showing line count and character count after successful parse
+- **UI: "Parse another document" button** made prominent (was a subtle text link)
+- **Security: Function URL switched to AWS_IAM auth** from NONE. Server signs requests with SigV4. Same-account principals granted invoke access via resource policy.
+- **Server: Uses https.request** for signed Lambda calls (avoids fetch body-hash mismatch with SigV4)
+
+### Added
+- `@smithy/signature-v4`, `@smithy/protocol-http`, `@aws-crypto/sha256-js`, `@aws-sdk/credential-provider-node` dependencies for request signing
+- `ui/tsconfig.json` for TypeScript configuration
+- `tsx` as a global dev dependency for TypeScript execution
+
+### Fixed
+- Function URL 403 errors caused by missing resource policy (now managed by CDK)
+- Portless script resolution (uses direct `tsx` command)
+
+---
+
 ## [1.0.0] - 2026-05-23
 
 Initial release. Lambda-only architecture for serverless document parsing.
