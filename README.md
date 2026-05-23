@@ -4,7 +4,7 @@ Self-hosted document parsing on AWS. Drop in a DOCX, PDF, or spreadsheet and get
 
 This runs [LiteParse](https://github.com/run-llama/liteparse) (the open-source layout-aware parser from LlamaIndex) as a Lambda function behind a Function URL, with an optional S3 pipeline for batch processing. Deployed via CDK.
 
-![LiteParse UI](.github/images/liteparse-on-lambda-home.png)
+![LiteParse on Lambda](.github/images/liteparse-on-lambda-pdf.png)
 
 ---
 
@@ -30,6 +30,24 @@ npm start
 Open [https://liteparse.localhost](https://liteparse.localhost) and drag a file in. You'll see the parsed text and can download `.txt` or `.json` results.
 
 The local UI uses [Portless](https://portless.sh/) for a stable named URL. On first run it'll prompt once to trust the local CA.
+
+---
+
+## Local UI
+
+The repo ships with a polished drag-and-drop interface that talks directly to your Lambda function (SigV4-signed, no public endpoint exposed).
+
+| Drop zone | Parsed output |
+|:---------:|:-------------:|
+| ![Home](.github/images/liteparse-on-lambda-home.png) | ![Parsed DOCX](.github/images/liteparse-on-lambda-docx.png) |
+
+Features:
+- Real-time progress with upload/parse/done phases and elapsed timer
+- File metadata (size, type) shown immediately on drop
+- Completion stats: line count, character count, total time
+- Text and JSON preview tabs with syntax-appropriate rendering
+- One-click `.txt` and `.json` downloads
+- Works with PDF, DOCX, XLSX, PPTX, PNG, and JPG
 
 ---
 
